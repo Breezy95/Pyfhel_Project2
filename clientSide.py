@@ -18,8 +18,8 @@ import pickle
 # This can be changed into real communication using other python libraries.
 secure_channel = tempfile.TemporaryDirectory()
 sec_con = Path(secure_channel.name)
-pk_file = sec_con / "mypk.pk"
-contx_file = sec_con / "mycontx.con"
+pk_file = "mypk.pk"
+contx_file = "mycontx.con"
 
 
 ##### CLIENT
@@ -40,7 +40,7 @@ with open("toy_dataset.csv", "r", newline='') as f:
     for entry in csvReader:
         csvDict[entry['Number']] = [entry['City'],entry['Gender'],entry['Age'], entry['Illness']]  #city,gender,age,income,illness
 
-#pickle the public key and send over the network
+#serialize the public key, context and send over the network
 
 
 HOST = "127.0.0.1"  # The server's hostname or IP address
@@ -51,7 +51,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
     for x in range(1,11): #1 to 10 0 is not in the csv as a starting point
         val =int(csvDict[str(x)][2])
-        HE.encryptInt(val)
+        encVal =HE.encryptInt(val)
 
 
 
