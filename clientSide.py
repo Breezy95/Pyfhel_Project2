@@ -4,22 +4,32 @@ import socket
 import pickle
 import struct
 
+#call this function when requesting results of data
+#operation is a string  used to represent the type of
+#operation the server will do on the data
+#should receive a ciphertext
+def reqData(sock, operation):
+    sock.send(bytes(operation))
+    with open(operation, 'wb') as f:
+        bytes =0
+        
+
 #process which iswhat we want sent(pk, ctxt,context), filename, socket
 def sendFile(proc,fn,sock):
-    s.send(bytes(proc))  #send process to be done
-    v = s.recv(1024).decode()   #wait for ack of prev msg
+    sock.send(bytes(proc,'utf8'))  #send process to be done
+    v = sock.recv(1024).decode()   #wait for ack of prev msg
     print(f"received process ack: {v}")
 #send file name
 
-    s.send(fn.encode())
+    sock.send(fn.encode())
 
-    v=s.recv(1024).decode()
+    v=sock.recv(1024).decode()
     print(f"received filename ack : {v}")
 #send file size
     print(os.path.getsize(fn))
 #use struct pack to send file size (is it needed?)
-    s.send(struct.pack("i", os.path.getsize(fn)))
-    v =s.recv(1024).decode() #wait for ack
+    sock.send(struct.pack("i", os.path.getsize(fn)))
+    v =sock.recv(1024).decode() #wait for ack
     print("received  file size ack: {v}")
 
 
@@ -29,7 +39,7 @@ def sendFile(proc,fn,sock):
     with open(fn, 'rb') as file_contents:
         fc = file_contents.read(1024)
         while fc:
-            s.send(fc)
+            sock.send(fc)
             print("sending segment")
         #print(str(fc))
             fc = file_contents.read(1024)
@@ -43,8 +53,8 @@ HE.keyGen()
 
 print(HE)
 
-pk_file = "mypk.pk"
-HE.savepublicKey(pk_file)
+#pk_file = "mypk.pk"
+#HE.savepublicKey(pk_file)
 
 ctx_file = "myctx.con"
 HE.saveContext(ctx_file)
@@ -61,14 +71,17 @@ PORT = 50001
 
 #serialize pub key
 pick_pk = pickle.dumps(HE)
+with open("pickled_pk.pk","wb") as pk_f:
+    pk_f.write(pick_pk)
+
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((HOST,PORT))
 
 #pk or ctxt
-sendFile('pk',pk_file,s)
+sendFile('pk','pickled_pk.pk',s)
 
-            
+ 
 
 
 

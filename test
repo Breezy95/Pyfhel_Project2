@@ -1,0 +1,17 @@
+import pickle
+import os
+from Pyfhel import Pyfhel, PyPtxt, PyCtxt
+
+
+HE = Pyfhel()
+HE.contextGen(p=65537, m=2**12)
+HE.keyGen()
+HE.savepublicKey("testpk.pk")
+print(os.path.getsize('testpk.pk'))
+
+pick_pk = pickle.dumps(HE.to_bytes_publicKey())
+x =pickle.loads(pick_pk)
+print(len(pick_pk))
+print(len(x))
+
+#same length when unpickled so do not overthink 

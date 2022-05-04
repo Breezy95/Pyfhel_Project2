@@ -37,11 +37,28 @@ if data == 'pk':
         file_buffer = conn.recv(BUFFER)
         pk_file.write(file_buffer)
         bytes += len(file_buffer)
+    
     pk_file.close()
 
 
-    
-
+#main method, switch statement:
+# global vars: HE, use regex to load list of 
+# ciphertexts
+if __name__ == "__main__":    
+    HE = object()
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(('localhost', 50001))
+    s.listen(1)
+    conn, addr = s.accept()
+    val = conn.recv(1024).decode()
+    match val:
+        case 'pk':
+            pass
+        case 'ctxt':
+            pass
+        case _:
+            conn.send(b'invalid query, ending session and deleting files')
+            print('invalid query, ending session and deleting files')
 
 #upon receiving files it will create the public key and then perform calculations
 
