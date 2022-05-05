@@ -10,12 +10,28 @@ import struct
 #should receive a ciphertext
 def reqData(sock, operation, he):
     sock.send(b'Query')
-    x =sock.recv(4096)
-    #sock.send(bytes(operation))
-    print(he.dec)
-    with open('test.d', 'wb') as f:
+    
+    file_size = struct.unpack("i", sock.recv(4))[0]
+    print("entering reqData")
+    sock.send(b'1') # ack of file len
+
+    
+
+    #receiving pickled data object
+    with open('sum.ctxt', 'wb') as pk_file:
         bytes =0
-        
+        while bytes < file_size:
+            file_buffer = sock.recv(1024)
+            pk_file.write(file_buffer)
+            bytes += len(file_buffer)
+            print(f'the size of the file being written is currently {bytes} while the pickled filesize is {file_size}')
+
+    #unpickle object and then decrypt
+    pick_f = open('sum.ctxt','rb')
+    unpick_ctxt =pickle.load(pick_f)
+    unpick_ctxt._pyfhel = he 
+    print('what is the sum')
+    print(unpick_ctxt.decrypt())
 
 #process which iswhat we want sent(HE, ctxt,context), filename, socket
 def sendFile(proc,fn,obj,sock):
@@ -36,12 +52,12 @@ def sendFile(proc,fn,obj,sock):
         pk_f.write(pick_obj)
 
 #send file size
-    print(os.path.getsize(fn))
+#print(os.path.getsize(fn))
 #use struct pack to send file size (is it needed?)
     
     sock.send(struct.pack("i", os.path.getsize(fn)))
     v =sock.recv(1024).decode() #wait for ack
-    print("received  file size ack: {v}")
+    print(f"received  file size ack: {v}")
 
 #send file contents
 #send in segments so theres no weird file overlap with
@@ -75,7 +91,7 @@ if __name__ == "__main__":
     cb = HE.encryptFrac(b)
     ca.to_file('ca.ctxt')
     cb.to_file('cb.ctxt')
-
+    print(cb._encoding)
     #send files to server
     HOST = '127.0.0.1'
     PORT = 50001
@@ -95,6 +111,8 @@ if __name__ == "__main__":
     sendFile('ctxt','cb.ctxt',cb,s)
     s.recv(1024)
     reqData(s,'+',HE)
+    s.recv(1024)
+    s.send(b'LEAVE')
     
     
 

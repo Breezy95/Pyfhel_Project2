@@ -1,4 +1,5 @@
 #from msilib import CAB
+from fileinput import filename
 from Pyfhel import Pyfhel, PyPtxt, PyCtxt
 import os
 import sys
@@ -122,8 +123,7 @@ def unpackObj(sock):
 # ciphertexts
 if __name__ == "__main__":    
     HE_CL = Pyfhel()
-    CA = PyCtxt()
-    CB = PyCtxt()
+
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(('localhost', 50001))
     s.listen(1)
@@ -137,8 +137,6 @@ if __name__ == "__main__":
             if val == 'HE':
               x = unpackObj(conn)
               HE_CL = x
-              CA._pyfhel = HE_CL #test
-              CB._pyfhel = HE_CL#testing
               conn.send(b'1')
               val = conn.recv(1024).decode()
 
@@ -148,10 +146,51 @@ if __name__ == "__main__":
                 val = conn.recv(1024).decode()
 
             elif val == 'Query':
-                #glob regex to create list of files
-                resSum = CA + CB
-                HE_CL(resSum)
+                #error here
+
+                #HE_CL.decrypt(CA)   throws error because it is incapable of decrypting 
+                #without priv key
                 #simple addition operation of two ciphertexts
+
+                #remember file is still pickled
+                pk_file_a =open("server_file/ca.ctxt" ,'rb')
+                pk_file_b = open("server_file/cb.ctxt" ,'rb')
+                unpickled_ciph_a = pickle.load(pk_file_a)
+                unpickled_ciph_b = pickle.load(pk_file_b)
+                unpickled_ciph_a._pyfhel= HE_CL
+                unpickled_ciph_b._pyfhel= HE_CL
+                pk_file_a.close()
+                pk_file_b.close()
+
+                #noise budget has error but it may be because theres no private key here
+                #if file is sent over perhaps it wont crash T.T on decryption
+                sum = unpickled_ciph_a + unpickled_ciph_b 
+
+                #we must pickle the result and send 
+                # filesize and then byte stream
+                pick_sum = pickle.dumps(sum)
+
+                print(len(pick_sum))
+                #sending file length
+                
+                with open('server_file/sum.ctxt',"wb") as pk_f:
+                    pk_f.write(pick_sum)
+                
+                conn.send(struct.pack("i",os.path.getsize('server_file/sum.ctxt')))
+
+                conn.recv(1024) #ack from client
+
+                with open('server_file/sum.ctxt', 'rb') as file_contents:
+                    fc = file_contents.read(1024)
+                    while fc:
+                        conn.send(fc)
+                        print("sending segment")
+                        #print(str(fc))
+                        fc = file_contents.read(1024)
+                print("exiting sending operations on server")
+                conn.send(b'1')
+                val = conn.recv(1024).decode()
+                
 
 
             else:
