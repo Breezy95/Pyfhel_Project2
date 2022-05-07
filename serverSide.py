@@ -1,11 +1,14 @@
 #from msilib import CAB
 from fileinput import filename
+from ntpath import join
 from Pyfhel import Pyfhel, PyPtxt, PyCtxt
 import os
 import sys
 import socket
 import pickle
 import struct
+import csv
+import numpy
 import glob
 
 BUFFER = 1024
@@ -118,6 +121,9 @@ def unpackObj(sock):
     return unpick_f
 
 
+
+
+
 #main method, switch statement:
 # global vars: HE, use regex to load list of 
 # ciphertexts
@@ -131,8 +137,10 @@ if __name__ == "__main__":
     val = conn.recv(1024).decode()
     #when pickling a pyfhel object only context is serialized
     #keys must be transmitted independently
+    print("waiting for input")
     with conn:
-        while True:    
+        print(f'receive input {val}')
+        while True:
             
             if val == 'HE':
               x = unpackObj(conn)
@@ -145,41 +153,56 @@ if __name__ == "__main__":
                 conn.send(b'1')
                 val = conn.recv(1024).decode()
 
+            elif val == 'ls':
+                file_lst =glob.glob("server_file/*.ctxt")
+                db_lst = glob.glob("server_file/*.db")
+                lst = file_lst + db_lst
+                conn.send(bytes(''.join(lst),'utf8'))
+                val = conn.recv(1024).decode()
+
+            elif val == 'db_down':
+                f = unpackObj(conn)
+                conn.send(b'1')
+                val = conn.recv(1024).decode()
+
             elif val == 'Query':
                 #error here
+                conn.send(b'1') #ack for receiving query, wait for operation
+
+                op = conn.recv(1024).decode() #operation
+
+                conn.send(b'1') #operation ack
+
+                pick_operands =conn.recv(1024).decode()
+
+                operands = pickle.loads(pick_operands)
+
+                conn.send(b'enter the files that will be computed')
+                #a db file passed through will add its entries together from line n to line m
+                # to perform an operation on multiples files together you can pass
+                #  through the operation with multiple files
+
+                
 
                 #HE_CL.decrypt(CA)   throws error because it is incapable of decrypting 
                 #without priv key
                 #simple addition operation of two ciphertexts
 
                 #remember file is still pickled
-                pk_file_a =open("server_file/ca.ctxt" ,'rb')
-                pk_file_b = open("server_file/cb.ctxt" ,'rb')
-                unpickled_ciph_a = pickle.load(pk_file_a)
-                unpickled_ciph_b = pickle.load(pk_file_b)
-                unpickled_ciph_a._pyfhel= HE_CL
-                unpickled_ciph_b._pyfhel= HE_CL
-                pk_file_a.close()
-                pk_file_b.close()
 
                 #noise budget has error but it may be because theres no private key here
                 #if file is sent over perhaps it wont crash T.T on decryption
-                sum = unpickled_ciph_a + unpickled_ciph_b 
 
                 #we must pickle the result and send 
                 # filesize and then byte stream
-                pick_sum = pickle.dumps(sum)
 
-                print(len(pick_sum))
                 #sending file length
                 
-                with open('server_file/sum.ctxt',"wb") as pk_f:
-                    pk_f.write(pick_sum)
                 
                 conn.send(struct.pack("i",os.path.getsize('server_file/sum.ctxt')))
 
                 conn.recv(1024) #ack from client
-
+                '''
                 with open('server_file/sum.ctxt', 'rb') as file_contents:
                     fc = file_contents.read(1024)
                     while fc:
@@ -187,6 +210,7 @@ if __name__ == "__main__":
                         print("sending segment")
                         #print(str(fc))
                         fc = file_contents.read(1024)
+                        '''
                 print("exiting sending operations on server")
                 conn.send(b'1')
                 val = conn.recv(1024).decode()
