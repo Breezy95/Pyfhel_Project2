@@ -215,6 +215,7 @@ if __name__ == "__main__":
                                 unpick_filled_val = unpick_filled_val+ ctxt
 
                         pick_result = pickle.dumps(unpick_filled_val)
+                        conn.send('exit send func')
                         conn.send(pick_result)
                         
                         
