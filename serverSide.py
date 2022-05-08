@@ -13,6 +13,10 @@ import glob
 
 BUFFER = 1024
 
+
+def sendObject(obj, sock):
+    pass
+
 #server acts as FTP server, then performs computation.
 def pkSetup(sock):
     sock.send(b'1') #ack of method
@@ -157,7 +161,8 @@ if __name__ == "__main__":
                 file_lst =glob.glob("server_file/*.ctxt")
                 db_lst = glob.glob("server_file/*.db")
                 lst = file_lst + db_lst
-                conn.send(bytes(''.join(lst),'utf8'))
+                pick_lst =pickle.dumps(lst)
+                conn.send(pick_lst)
                 val = conn.recv(1024).decode()
 
             elif val == 'db_down':
@@ -171,19 +176,74 @@ if __name__ == "__main__":
 
                 op = conn.recv(1024).decode() #operation
 
-                conn.send(b'1') #operation ack
+                conn.send(b'enter the files that will be computed') #operation ack
 
-                pick_operands =conn.recv(1024).decode()
+                pick_operands =conn.recv(1024)
 
                 operands = pickle.loads(pick_operands)
 
-                conn.send(b'enter the files that will be computed')
-                #a db file passed through will add its entries together from line n to line m
-                # to perform an operation on multiples files together you can pass
-                #  through the operation with multiple files
-
                 
 
+                if op == 'addv': # all data is sent as a vector so the algos can do operations as a vector
+                    #open existing filepath of operand and create filereader
+                    oper_lst = []
+                    for file_path in operands:
+                        fp = file_path 
+                        if 'server_file' not in fp :
+                            fp ='server_file/' + fp
+                        
+                        oper_file = open(fp,'rb')
+                        oper_lst.append(pickle.load(oper_file))
+                    
+                        #need to attach HE_CL to ctxts or else it will throw an error
+                        
+                        for oper in oper_lst:
+                            for ctxt in oper:
+                                ctxt._pyfhel = HE_CL
+
+                        conn.send()
+                        # receive a cipher text with the value zero encrypted
+                        #this way we can store the sum
+                        
+
+
+
+                        
+                            
+
+                if op == 'sub':
+                    pass
+                if op == 'avg':
+                    pass
+
+                if op == 'sum':
+                    pass
+                
+                if op == 'mult':
+                    pass
+
+                if op == 'cdiv':
+                    pass
+
+                if op == 'div':
+                    pass
+
+                if op == 'min':
+                    pass
+                if op == 'max':
+                    pass
+
+                
+                print("exiting query operations on server")
+                conn.send(b'1')
+                val = conn.recv(1024).decode()
+                
+
+
+            else:
+                print("exiting program")
+                conn.close()
+                break
                 #HE_CL.decrypt(CA)   throws error because it is incapable of decrypting 
                 #without priv key
                 #simple addition operation of two ciphertexts
@@ -198,11 +258,8 @@ if __name__ == "__main__":
 
                 #sending file length
                 
-                
-                conn.send(struct.pack("i",os.path.getsize('server_file/sum.ctxt')))
-
-                conn.recv(1024) #ack from client
-                '''
+            
+'''
                 with open('server_file/sum.ctxt', 'rb') as file_contents:
                     fc = file_contents.read(1024)
                     while fc:
@@ -211,16 +268,8 @@ if __name__ == "__main__":
                         #print(str(fc))
                         fc = file_contents.read(1024)
                         '''
-                print("exiting sending operations on server")
-                conn.send(b'1')
-                val = conn.recv(1024).decode()
+                        
                 
-
-
-            else:
-                print("exiting program")
-                conn.close()
-                break
 
 
 '''

@@ -4,6 +4,7 @@ import socket
 import pickle
 import struct
 import csv
+import numpy as np
 
 #call this function when requesting results of data
 #operation is a string  used to represent the type of
@@ -22,8 +23,10 @@ def reqData(sock, operation, operands,he): # remember to pickle the objects
 
     sock.send(pickle.dumps(operands))
 
-    msg = sock.recv(1024).decode()
-    print(msg)
+    #server ack for sent operands
+    msg = sock.recv(1024)
+    
+    #now client waits for ctxt with answer
 
 
     
@@ -121,59 +124,87 @@ if __name__ == "__main__":
     enc_entry = []
     cond = True
     while cond:
-        inp =input('enter preferred operation')
+        inp =input('enter preferred operation: ')
         match inp:
+
+            case 'HE':
+                sendFile('HE',pk_file,HE,s)
+                s.recv(1024) #ack of sent HE
 
             case 'db_num':
 
                 with open('toy_dataset.csv','r') as toy_f:
 
-                        print("enter the columns you would like to use each one must be separated by enter/newline")
+                        print("enter the columns you would like to use each one must be separated by enter/newline: ")
                         print('type stop to continue')
                         reader = csv.DictReader(toy_f)
+                        #dict_from_csv = dict(list(reader)[0])
+ 
+                        #readerlist from the keys of the dict
+                        #column_names = list(dict_from_csv.keys())
                         while True:
+                         #   print(column_names)
                             print('only numerical categories and must be more than one')
-                            inp = 'Age'#input()
+                            inp = input()
                             if inp == 'stop' and len(inp_list) > 0:
                                 break
                             if inp in reader.fieldnames:
                                 inp_list.append(inp)
-                                break
                             else:
                                 print('not a category name in the file')
+
                         m = 1#input('enter the starting row')
                         n = 4#input('enter the end row')
+                        cat_lst = {}
 
+                        for cat in inp_list:    # array for each category
+                            cat_lst[cat] =np.empty(n-m+1,dtype=PyCtxt)
+
+                        ind = 0
                         for row in reader:  # we now iterate through dict reader, later on I might add ranges
                             if int(row['Number']) < int(m):
                                 continue
                             if int(row['Number']) > int(n):
                                 break
-                            for cat in inp_list:    #goes through values selected
-                                entry = int(float(row[cat]))
-                                enc_entry.append(entry)
+                            
+                            for cat in inp_list: 
+                                   #goes through values selected
+                                #encrypting by row and inserting into array
+                                #  gives one pyctxt object instead of multiple
+                                #instead we try going row by row
+                                cat_lst[cat][ind] = HE.encryptFrac(float(row[cat]))
+                                print(HE.decryptFrac(cat_lst[cat][ind]))
+                            ind +=1
 
-                            #encrypt this list with HE
-                            lst_ctxt = HE.encryptBatch(enc_entry)
-                            db_list.append(lst_ctxt)
-                            enc_entry = []
-                        pick_db =pickle.dump(db_list, open(f'db{m}to{n}.db', 'wb'))
-                sendFile('db_down',f'db{m}to{n}.db',HE,s)
-                #save db as a file
+                            #save dbs as a file
+                            #we can pull dbs because they will be in the order given
+                            #by the keys in the categ dict 
+                            #{categ}{m}to{n}.db
+
+                            #find out how to prep server for multiple sends
+                            # can still be done with one cat
+                            for column in cat_lst.keys():
+                                sendFile('db_down',f'{column}{m}to{n}.db',s)
+
+
 
             case 'val':  #sends an encrypted value over
                 val = input("enter value, if float round up or down")
 
             case 'ls': #list files in server directory
                 s.send(bytes('ls','utf8'))
-                print(s.recv(1024).decode())
+                pick_dir = s.recv(1024)
+                unpick_dir = pickle.loads(pick_dir)
+                print(unpick_dir)
 
             case 'op':
-                op =input("Enter the operation you want done")
+                op =input("Enter the operation you want done: ")
                 oper_lst = []
                 operands = ''
                 while operands != 'stop':
-                    operands = input('Enter the files you want to be operated on, they must be of the same encryption')
+                    operands = input('Enter the files you want to be operated on, they must be of the same encryption: ')
+                    if operands == 'stop':
+                        break
                     oper_lst.append(operands)
                 reqData(s,op, oper_lst, HE)
 
@@ -182,7 +213,7 @@ if __name__ == "__main__":
                 break
 
             case _:
-                print('not a valid entry\n commands are db_num, HE, val, ls ')
+                print('not a valid entry\n commands are db_num, HE, val, ls, op ')
 
 
 
