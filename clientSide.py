@@ -11,22 +11,38 @@ import numpy as np
 #operation the server will do on the data
 #should receive a ciphertext
 def reqData(sock, operation, operands,he): # remember to pickle the objects
+    print("entering reqData")
     sock.send(b'Query')
     
-    sock.recv(1024)
+    v =sock.recv(1024)
+    print(f'received query ack: {v}')
     # send operation
     sock.send(bytes(operation,'utf8'))
     #file_size = struct.unpack("i", sock.recv(4))[0]
-    print("entering reqData")
+    
 
-    sock.recv(1024)
+    #server ack
 
+    v =sock.recv(1024)
+    print(f'received operation ack: {v}')
+
+    #client sends operands 
     sock.send(pickle.dumps(operands))
 
-    #server ack for sent operands
-    msg = sock.recv(1024)
+    #server ack for  operands
+    v =sock.recv(1024)
+    print(f'received operand ack: {v}')
+
+    #send ctxt with value 0
+    float_zero = HE.encryptFrac(float(0))
+
+    s.recv(1024) #server should enter unpack obj here
+    sendFile('1','pick_zero.ctxt',float_zero,s)
+
+
     
-    #now client waits for ctxt with answer
+    
+
 
 
     
@@ -50,17 +66,19 @@ def reqData(sock, operation, operands,he): # remember to pickle the objects
 
 #process which iswhat we want sent(HE, ctxt,context), filename, socket
 def sendFile(proc,fn,obj,sock):
-    sock.send(bytes(proc,'utf8'))  #send process to be done
-    print("waiting for proc. ack")
-    v = sock.recv(1024).decode()   #wait for ack of prev msg
-    print(f"received process ack: {v}")
+    if(proc != '1'):
+        sock.send(bytes(proc,'utf8'))  #send process to be done
+        print("waiting for proc. ack")
+        v = sock.recv(1024).decode()   #wait for ack of prev msg
+        print(f"received process ack: {v}")
 
 
 #send file name
     print(fn)
     sock.send(fn.encode())
-    
+    print('sent file name')
     v=sock.recv(1024).decode()
+    print(f'received filename ack {v}')
     
 
     #serialize obj and write to file
@@ -86,6 +104,9 @@ def sendFile(proc,fn,obj,sock):
             print("sending segment")
         #print(str(fc))
             fc = file_contents.read(1024)
+    
+    v =s.recv(1024)
+    print(f'received file transfer ack {v}')
             
 
 
@@ -129,7 +150,7 @@ if __name__ == "__main__":
 
             case 'HE':
                 sendFile('HE',pk_file,HE,s)
-                s.recv(1024) #ack of sent HE
+                #s.recv(1024) #ack of sent HE
 
             case 'db_num':
 
@@ -183,8 +204,9 @@ if __name__ == "__main__":
 
                             #find out how to prep server for multiple sends
                             # can still be done with one cat
-                            for column in cat_lst.keys():
-                                sendFile('db_down',f'{column}{m}to{n}.db',s)
+                        for column in cat_lst.keys():
+                            if cat_lst[column].size >0:
+                                sendFile('db_down',f'{column}{m}to{n}.db',cat_lst[column],s)
 
 
 

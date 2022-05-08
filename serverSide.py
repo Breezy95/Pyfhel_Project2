@@ -173,18 +173,25 @@ if __name__ == "__main__":
             elif val == 'Query':
                 #error here
                 conn.send(b'1') #ack for receiving query, wait for operation
-
+                print('ack for receiving query')
                 op = conn.recv(1024).decode() #operation
 
-                conn.send(b'enter the files that will be computed') #operation ack
-
+                conn.send(b'1') #operation ack
+                print('ack for receiving operation')
                 pick_operands =conn.recv(1024)
 
                 operands = pickle.loads(pick_operands)
 
-                
+                conn.send(b'1')  #operands ack
 
-                if op == 'addv': # all data is sent as a vector so the algos can do operations as a vector
+                #ctxt with float val of 0.0
+                
+                    
+
+                unpick_filled_val = unpackObj(conn)
+                unpick_filled_val._pyfhel = HE_CL
+
+                if op == 'add_all': # all data is sent as a vector so the algos can do operations as a vector
                     #open existing filepath of operand and create filereader
                     oper_lst = []
                     for file_path in operands:
@@ -201,9 +208,18 @@ if __name__ == "__main__":
                             for ctxt in oper:
                                 ctxt._pyfhel = HE_CL
 
-                        conn.send()
-                        # receive a cipher text with the value zero encrypted
-                        #this way we can store the sum
+                        #val of 
+                        #numpy array of float vals
+                        for oper in oper_lst:
+                            for ctxt in oper:
+                                unpick_filled_val = unpick_filled_val+ ctxt
+
+                        pick_result = pickle.dumps(unpick_filled_val)
+                        conn.send(pick_result)
+                        
+                        
+                        conn.recv(1024)
+                        
                         
 
 
