@@ -43,7 +43,7 @@ def sendObject(fn,obj, sock):
         fc = file_contents.read(1024)
         while fc:
             sock.send(fc)
-            print("sending segment")
+            #print("sending segment")
         #print(str(fc))
             fc = file_contents.read(1024)
 
