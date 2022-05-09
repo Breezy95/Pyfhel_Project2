@@ -5,12 +5,45 @@ import pickle
 import struct
 import csv
 import numpy as np
+import time
 
 #call this function when requesting results of data
 #operation is a string  used to represent the type of
 #operation the server will do on the data
 #should receive a ciphertext
+
+def receiveObject(sock):
+    
+    #code for receiving file
+
+    f_name =sock.recv(1024).decode() # recv file name
+    print(f'recv file name: {f_name}')
+    sock.send(b'1') # ack for file name
+
+    f_size = struct.unpack("i", sock.recv(4))[0] # file size
+
+    sock.send(b'1') # file size ack
+
+    with open(f'client_file/{f_name}','wb') as f:
+        bytes =0
+        while bytes < f_size:
+            seg =s.recv(1024)
+            f.write(seg)
+            bytes+= len(seg)
+
+    pick_f =open(f'client_file/{f_name}','rb')
+    unpick_f = pickle.load(pick_f)   
+    pick_f.close() 
+    unpick_f._pyfhel = HE
+    
+    print(HE.decryptFrac(unpick_f))
+
+    return unpick_f
+
+
+
 def reqData(sock, operation, operands,he): # remember to pickle the objects
+    
     print("entering reqData")
     sock.send(b'Query')
     
@@ -28,6 +61,7 @@ def reqData(sock, operation, operands,he): # remember to pickle the objects
 
     #client sends operands 
     sock.send(pickle.dumps(operands))
+    print('sending operand')
 
     #server ack for  operands
     v =sock.recv(1024)
@@ -38,9 +72,12 @@ def reqData(sock, operation, operands,he): # remember to pickle the objects
 
     s.recv(1024) #server should enter unpack obj here
     sendFile('1','pick_zero.ctxt',float_zero,s)
+    print('sent empty cyphertext')
 
-
+    ans =receiveObject(s)
     
+    print(HE.decryptFrac(ans))
+    return ans
     
 
 
@@ -114,7 +151,7 @@ def sendFile(proc,fn,obj,sock):
 if __name__ == "__main__":
     
     HE = Pyfhel()
-    HE.contextGen(p=1964769281, m=8192, base=2,sec=192,flagBatching=True)
+    HE.contextGen(p=65537, m= 2**12)
     HE.keyGen()
 
     print(HE)
@@ -128,6 +165,11 @@ if __name__ == "__main__":
     HOST = '127.0.0.1'
     PORT = 50001
 
+    c1 = HE.encryptFrac(95.0)
+    c2 = HE.encryptFrac(95.0)
+
+    print(HE.decryptFrac(c1 + c2))
+
 
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -138,7 +180,7 @@ if __name__ == "__main__":
     #test runs
 
                 #open database, encrypt pairs and send
-               
+             
     
     db_list = []
     inp_list = []
@@ -150,6 +192,7 @@ if __name__ == "__main__":
 
             case 'HE':
                 sendFile('HE',pk_file,HE,s)
+                
                 #s.recv(1024) #ack of sent HE
 
             case 'db_num':
@@ -174,8 +217,8 @@ if __name__ == "__main__":
                             else:
                                 print('not a category name in the file')
 
-                        m = 1#input('enter the starting row')
-                        n = 4#input('enter the end row')
+                        m = int(input('enter the starting row'))
+                        n = int(input('enter the end row'))
                         cat_lst = {}
 
                         for cat in inp_list:    # array for each category
@@ -228,7 +271,10 @@ if __name__ == "__main__":
                     if operands == 'stop':
                         break
                     oper_lst.append(operands)
+                start = time.time()
                 reqData(s,op, oper_lst, HE)
+                end = time.time()
+                print(f'time elapsed: {start-end}')
 
             case 'kill':
                 cond = False

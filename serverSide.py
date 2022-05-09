@@ -14,8 +14,38 @@ import glob
 BUFFER = 1024
 
 
-def sendObject(obj, sock):
-    pass
+
+def sendObject(fn,obj, sock):
+
+    #send file name
+    print(fn)
+    sock.send(fn.encode())
+    print('sent file name')
+    v=sock.recv(1024).decode() 
+    print(f'received filename ack {v}')
+
+    pick_obj = pickle.dumps(obj)
+    with open(f'server_file/{fn}','wb') as f:
+        f.write(pick_obj)
+    
+    #send file size
+    #print(os.path.getsize(fn))
+    #use struct pack to send file size (is it needed?)
+    
+    sock.send(struct.pack("i", os.path.getsize('server_file/'+fn)))
+    v =sock.recv(1024).decode() #wait for ack
+    print(f"received  file size ack: {v}")
+
+#send file contents
+#send in segments so theres no weird file overlap with
+#other files
+    with open(f'server_file/{fn}', 'rb') as file_contents:
+        fc = file_contents.read(1024)
+        while fc:
+            sock.send(fc)
+            print("sending segment")
+        #print(str(fc))
+            fc = file_contents.read(1024)
 
 #server acts as FTP server, then performs computation.
 def pkSetup(sock):
@@ -122,6 +152,7 @@ def unpackObj(sock):
     
     pk_file =open("server_file/" +str(filename),'rb')
     unpick_f =pickle.load(pk_file)
+    pk_file.close()
     return unpick_f
 
 
@@ -139,6 +170,7 @@ if __name__ == "__main__":
     s.listen(1)
     conn, addr = s.accept()
     val = conn.recv(1024).decode()
+    file_num = dict(add_all=0,avg=0,sum=0,div=0)
     #when pickling a pyfhel object only context is serialized
     #keys must be transmitted independently
     print("waiting for input")
@@ -149,6 +181,9 @@ if __name__ == "__main__":
             if val == 'HE':
               x = unpackObj(conn)
               HE_CL = x
+              #get pub key
+              #pkSetup(conn)
+              #get context
               conn.send(b'1')
               val = conn.recv(1024).decode()
 
@@ -191,6 +226,8 @@ if __name__ == "__main__":
                 unpick_filled_val = unpackObj(conn)
                 unpick_filled_val._pyfhel = HE_CL
 
+                conn.send(b'1') #file transfer ack
+
                 if op == 'add_all': # all data is sent as a vector so the algos can do operations as a vector
                     #open existing filepath of operand and create filereader
                     oper_lst = []
@@ -201,25 +238,29 @@ if __name__ == "__main__":
                         
                         oper_file = open(fp,'rb')
                         oper_lst.append(pickle.load(oper_file))
-                    
+                        oper_file.close()
                         #need to attach HE_CL to ctxts or else it will throw an error
-                        
-                        for oper in oper_lst:
-                            for ctxt in oper:
-                                ctxt._pyfhel = HE_CL
 
-                        #val of 
-                        #numpy array of float vals
-                        for oper in oper_lst:
-                            for ctxt in oper:
-                                unpick_filled_val = unpick_filled_val+ ctxt
+                    ans = []
 
-                        pick_result = pickle.dumps(unpick_filled_val)
-                        conn.send('exit send func')
-                        conn.send(pick_result)
+                    for oper in oper_lst:
+                        for ctxt in oper:   
+                            ctxt._pyfhel = HE_CL
+                        
+                    for oper in oper_lst:
+                        for ctxt in oper:
+                            if len(ans) ==0:
+                                ans.append(ctxt)
+                                continue
+                            ans[0] += ctxt
+                            
+                                
+                        
+                    
+                    sendObject(f'add_all{file_num["add_all"]}',ans[0],conn)
                         
                         
-                        conn.recv(1024)
+                    #val =conn.recv(1024).decode()
                         
                         
 
@@ -228,10 +269,39 @@ if __name__ == "__main__":
                         
                             
 
-                if op == 'sub':
-                    pass
                 if op == 'avg':
-                    pass
+                    oper_lst = []
+                    for file_path in operands:
+                        fp = file_path 
+                        if 'server_file' not in fp :
+                            fp ='server_file/' + fp
+                        
+                        oper_file = open(fp,'rb')
+                        oper_lst.append(pickle.load(oper_file))
+                        oper_file.close()
+                        #need to attach HE_CL to ctxts or else it will throw an error
+
+                    ans = []
+                    num = 0
+                    for oper in oper_lst:
+                        for ctxt in oper:   
+                            ctxt._pyfhel = HE_CL
+                        
+                    for oper in oper_lst:
+                        for ctxt in oper:
+                            if len(ans) ==0:
+                                ans.append(ctxt)
+                                num +=1
+                                continue
+                            ans[0] += ctxt
+                            num += 1
+                            print(num)
+                    ans[0] = ans[0]/num
+                            
+                                
+                        
+                    
+                    sendObject(f'add_all{file_num["add_all"]}',ans[0],conn)
 
                 if op == 'sum':
                     pass
@@ -245,14 +315,10 @@ if __name__ == "__main__":
                 if op == 'div':
                     pass
 
-                if op == 'min':
-                    pass
-                if op == 'max':
-                    pass
 
                 
                 print("exiting query operations on server")
-                conn.send(b'1')
+                #conn.send(b'1')
                 val = conn.recv(1024).decode()
                 
 
